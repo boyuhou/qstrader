@@ -147,7 +147,7 @@ class SignalEvent(Event):
     Handles the event of sending a Signal from a Strategy object.
     This is received by a Portfolio object and acted upon.
     """
-    def __init__(self, ticker, action, suggested_quantity=None):
+    def __init__(self, ticker, action, init_stop, suggested_quantity=None):
         """
         Initialises the SignalEvent.
 
@@ -162,6 +162,8 @@ class SignalEvent(Event):
         self.type = EventType.SIGNAL
         self.ticker = ticker
         self.action = action
+        self.init_stop = init_stop
+        # self.
         self.suggested_quantity = suggested_quantity
 
 
