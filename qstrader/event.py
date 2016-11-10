@@ -147,7 +147,7 @@ class SignalEvent(Event):
     Handles the event of sending a Signal from a Strategy object.
     This is received by a Portfolio object and acted upon.
     """
-    def __init__(self, ticker, action, init_stop, suggested_quantity=None):
+    def __init__(self, ticker, action, init_stop):
         """
         Initialises the SignalEvent.
 
@@ -163,17 +163,15 @@ class SignalEvent(Event):
         self.ticker = ticker
         self.action = action
         self.init_stop = init_stop
-        # self.
-        self.suggested_quantity = suggested_quantity
 
 
-class OrderEvent(Event):
+class MarketOrderEvent(Event):
     """
     Handles the event of sending an Order to an execution system.
     The order contains a ticker (e.g. GOOG), action (BOT or SLD)
     and quantity.
     """
-    def __init__(self, ticker, action, quantity):
+    def __init__(self, ticker, action, price):
         """
         Initialises the OrderEvent.
 
@@ -184,8 +182,8 @@ class OrderEvent(Event):
         """
         self.type = EventType.ORDER
         self.ticker = ticker
+        self.price = price
         self.action = action
-        self.quantity = quantity
 
     def print_order(self):
         """
@@ -193,7 +191,7 @@ class OrderEvent(Event):
         """
         print(
             "Order: Ticker=%s, Action=%s, Quantity=%s" % (
-                self.ticker, self.action, self.quantity
+                self.ticker, self.action
             )
         )
 

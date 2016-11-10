@@ -2,7 +2,7 @@ import datetime
 from decimal import Decimal
 import unittest
 
-from qstrader.event import FillEvent, OrderEvent, SignalEvent
+from qstrader.event import FillEvent, MarketOrderEvent, SignalEvent
 from qstrader.portfolio_handler import PortfolioHandler
 from qstrader.price_handler.base import AbstractTickPriceHandler
 from qstrader.compat import queue
@@ -44,7 +44,7 @@ class RiskManagerMock(object):
         sized order through, creates the corresponding
         OrderEvent object and adds it to a list.
         """
-        order_event = OrderEvent(
+        order_event = MarketOrderEvent(
             sized_order.ticker,
             sized_order.action,
             sized_order.quantity
@@ -89,7 +89,7 @@ class TestSimpleSignalOrderFillCycleForPortfolioHandler(unittest.TestCase):
         Tests the "_place_orders_onto_queue" method
         as a basic sanity check.
         """
-        order = OrderEvent("MSFT", "BOT", 100)
+        order = MarketOrderEvent("MSFT", "BOT", 100)
         order_list = [order]
         self.portfolio_handler._place_orders_onto_queue(order_list)
         ret_order = self.portfolio_handler.events_queue.get()

@@ -1,5 +1,5 @@
 from .base import AbstractRiskManager
-from ..event import OrderEvent
+from ..event import MarketOrderEvent
 
 
 class ExampleRiskManager(AbstractRiskManager):
@@ -9,7 +9,7 @@ class ExampleRiskManager(AbstractRiskManager):
         sized order through, creates the corresponding
         OrderEvent object and adds it to a list.
         """
-        order_event = OrderEvent(
+        order_event = MarketOrderEvent(
             sized_order.ticker,
             sized_order.action,
             sized_order.quantity

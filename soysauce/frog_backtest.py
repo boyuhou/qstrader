@@ -10,12 +10,12 @@ from soysauce.trading_session.backtest import Backtest
 
 def etf_run(): #config, testing, tickers, filename
     events_queue = queue.Queue()
-    tickers = ['EWZ', 'SPY']
-    csv_dir = r'C:\temp\1minute\price\ETF'
+    tickers = ['EWZ', 'AAPL']
+    csv_dir = r'C:\temp\1minute\price'
 
     price_handler = IqfeedCsvBarPriceHandler(csv_dir, events_queue, tickers, 60)
 
-    frog_factor_folder = r'C:\temp\daily\factor\ETF'
+    frog_factor_folder = r'C:\temp\daily\factor'
     frog_strategy = HybridFrogStrategy(tickers, events_queue, frog_factor_folder)
 
     backtest = Backtest(price_handler, frog_strategy)
