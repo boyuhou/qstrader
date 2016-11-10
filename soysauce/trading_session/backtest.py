@@ -3,9 +3,10 @@ from qstrader.event import EventType
 
 
 class Backtest(object):
-    def __init__(self, price_handler):
+    def __init__(self, price_handler, strategy):
         self.price_handler = price_handler
         self.events_queue = price_handler.events_queue
+        self.strategy = strategy
 
     def _run_backtest(self):
         print('Running backtest...')
@@ -19,6 +20,7 @@ class Backtest(object):
                 if event is not None:
                     if event.type == EventType.BAR:
                         print(str(event))
+                        self.strategy.calculate_signals(event)
                     else:
                         raise NotImplementedError(str.format("Unsupported event type '%s'", event.type))
 
