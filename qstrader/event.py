@@ -171,7 +171,7 @@ class MarketOrderEvent(Event):
     The order contains a ticker (e.g. GOOG), action (BOT or SLD)
     and quantity.
     """
-    def __init__(self, ticker, action, price):
+    def __init__(self, ticker, action, price, time, info, target_price=0, stop_price=0):
         """
         Initialises the OrderEvent.
 
@@ -182,16 +182,20 @@ class MarketOrderEvent(Event):
         """
         self.type = EventType.ORDER
         self.ticker = ticker
+        self.time = time
         self.price = price
+        self.stop_price = stop_price
+        self.target_price = target_price
         self.action = action
+        self.info = info
 
     def print_order(self):
         """
         Outputs the values within the OrderEvent.
         """
         print(
-            "Order: Ticker=%s, Action=%s, Quantity=%s" % (
-                self.ticker, self.action
+            "Order: Ticker=%s, Action=%s, Price=%s" % (
+                self.ticker, self.action, self.price
             )
         )
 

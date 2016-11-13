@@ -2,13 +2,18 @@ import pandas as pd
 import os
 import datetime
 from qstrader.strategy.base import AbstractStrategy
-from qstrader.event import (SignalEvent, EventType)
+from qstrader.event import (MarketOrderEvent, EventType)
 
 open_time = datetime.time(9, 30)
+second_open_time = datetime.time(9,31)
 close_time = datetime.time(16, 0)
 
+
 class HybridFrogStrategy(AbstractStrategy):
-    def __init__(self, tickers, event_queue, frog_score_folder, frog_multiplier, profit_taking_multiplier=1):
+    def __init__(
+            self, tickers, event_queue, frog_score_folder,
+            frog_multiplier, profit_taking_multiplier=1
+    ):
         self.tickers = tickers
         self.events_queue = event_queue
         self.frog_score_folder = frog_score_folder
@@ -41,8 +46,19 @@ class HybridFrogStrategy(AbstractStrategy):
         open_price = self._get_open_price(event)
         frog_box, avg_range = self._get_frog_info(event.ticker, event.time.date())
 
-        long_price = open_price + frog_box * self.frog_multiplier
-        short_price = open_price - frog_box * self.frog_multiplier
+        hybrid_frog = round(frog_box * self.frog_multiplier, 2)
+        long_price = round(open_price + hybrid_frog, 2)
+        short_price = round(open_price - hybrid_frog, 2)
+
+        trade_info = {
+            'AvgRange': avg_range,
+            'FrogBox': frog_box,
+            'HybridFrog': hybrid_frog,
+            'FrogMultiplier': self.frog_multiplier,
+            'ProfitTakingMultiplier': self.profit_taking_multiplier,
+            'OpenPrice': open_price,
+            'EntryTime': event.time
+        }
 
         if event.ticker not in self.frog_trades:
             self.frog_trades[event.ticker] = {}
@@ -54,7 +70,7 @@ class HybridFrogStrategy(AbstractStrategy):
                 event, frog_box, avg_range, self.frog_multiplier, self.profit_taking_multiplier,
                 'LONG', stop_price, target_price, long_price
             )
-            self._create_entry_trade(frog_trade)
+            self._create_entry_trade(frog_trade, trade_info)
         elif event.low_price <= short_price <= event.high_price:
             stop_price = short_price + frog_box
             target_price = short_price - self.profit_taking_multiplier * frog_box
@@ -62,32 +78,72 @@ class HybridFrogStrategy(AbstractStrategy):
                 event, frog_box, avg_range, self.frog_multiplier, self.profit_taking_multiplier,
                 'SHORT', stop_price, target_price, short_price
             )
-            self._create_entry_trade(frog_trade)
+            self._create_entry_trade(frog_trade, trade_info)
 
-    def _create_entry_trade(self, frog_trade):
+    def _create_entry_trade(self, frog_trade, trade_info):
         self.frog_trades[frog_trade.event.ticker][frog_trade.event.time.date()] = [frog_trade]
         self.frog_status[frog_trade.event.ticker][frog_trade.event.time.date()] = 1
-        #TODO raise signal
+        market_order_signal = MarketOrderEvent(
+            ticker=frog_trade.event.ticker,
+            action=frog_trade.direction,
+            price=frog_trade.execute_price,
+            target_price=frog_trade.target_price,
+            stop_price=frog_trade.stop_price,
+            time=frog_trade.event.time,
+            info=trade_info
+        )
+        self.events_queue.put(market_order_signal)
 
     def _attempt_to_take_profit_or_stop_loss(self, event):
-        trade = self.frog_trades[event.event.ticker][event.time.date()]
+        frog_trade = self.frog_trades[event.ticker][event.time.date()][-1] # always get the last trade (should be only 1 trade)
+
+        trade_info = {
+            'AvgRange': frog_trade.avg_range,
+            'FrogBox': frog_trade.frog_box,
+            'HybridFrog': frog_trade.get_hybrid_frog_box(),
+            'FrogMultiplier': frog_trade.frog_multiplier,
+            'ProfitTakingMultiplier': frog_trade.profit_multiplier,
+            'EntryTime': frog_trade.event.time
+        }
 
         if event.time.time() == close_time:
-            #TODO: raise signal with market close price
             self.frog_status[event.ticker][event.time.date()] = 2
-        elif event.low_price <= trade.target_price <= event.high_price:
-            #TODO: issue profit taking signal
+            market_order_signal = MarketOrderEvent(
+                ticker=event.ticker,
+                action=frog_trade.get_cover_direction(),
+                price=event.close_price,
+                time=event.time,
+                info=trade_info
+            )
+            self.events_queue.put(market_order_signal)
+        elif event.low_price <= frog_trade.target_price <= event.high_price:
             self.frog_status[event.ticker][event.time.date()] = 2
-        elif event.low_price <= trade.stop_price <= event.high_price:
-            #TODO: issue stop loss signal
+            market_order_signal = MarketOrderEvent(
+                ticker=event.ticker,
+                action=frog_trade.get_cover_direction(),
+                price=frog_trade.target_price,
+                time=event.time,
+                info=trade_info
+            )
+            self.events_queue.put(market_order_signal)
+        elif event.low_price <= frog_trade.stop_price <= event.high_price:
             self.frog_status[event.ticker][event.time.date()] = 2
+            market_order_signal = MarketOrderEvent(
+                ticker=event.ticker,
+                action=frog_trade.get_cover_direction(),
+                price=frog_trade.stop_price,
+                time=event.time,
+                info=trade_info
+            )
+            self.events_queue.put(market_order_signal)
 
     def _analyze_event(self, frog_status, event):
-        return {
-            0: self._attempt_to_enter_frog_play(event),
-            1: self._attempt_to_take_profit_or_stop_loss(event),
-            2: None
-        }[frog_status]
+        if frog_status == 0:
+            self._attempt_to_enter_frog_play(event)
+        elif frog_status == 1:
+            self._attempt_to_take_profit_or_stop_loss(event)
+        else:
+            return None
 
     def _get_frog_play_status(self, event):
         """
@@ -98,31 +154,40 @@ class HybridFrogStrategy(AbstractStrategy):
             1 frog play entered
             2 frog play exit
         """
-        if event.time.time() == open_time:
-            if not self.frog_status.has_key(event.ticker):
+        try:
+            if event.ticker not in self.frog_status:
                 self.frog_status[event.ticker] = {}
-            self.frog_status[event.ticker][event.time.date()] = 0
-        return self.frog_status[event.ticker][event.time.date()]
+            #TODO: should refactor here
+            if event.time.time() == open_time or (event.time.date() not in self.frog_status[event.ticker]):
+                self.frog_status[event.ticker][event.time.date()] = 0
+            return self.frog_status[event.ticker][event.time.date()]
+        except KeyError:
+            print str.format('Ticker: {0}, Time: {1}', event.ticker, event.time)
+            raise
 
     def _get_open_price(self, event):
+        if event.ticker not in self.open_prices:
+            self.open_prices[event.ticker] = {}
         if event.time.time() == open_time:
-            if event.ticker not in self.open_prices:
-                self.open_prices[event.ticker] = {}
-            self.open_prices[event.ticker][event.time.date()] = event.close_price
+            self.open_prices[event.ticker][event.time.date()] = round(event.close_price, 2)
+        elif event.time.time() == second_open_time and event.time.date() not in self.open_prices[event.ticker]:
+            print(str.format('Unable to get 0930 Price. Ticker: {0}, Date:{1}', event.ticker, event.time))
+            self.open_prices[event.ticker][event.time.date()] = round(event.close_price, 2)
         return self.open_prices[event.ticker][event.time.date()]
 
     def _get_long_short_price(self, open_price, frog_box, multiplier):
-        long_price = open_price + frog_box * multiplier
-        short_price = open_price - frog_box * multiplier
+        long_price = round(open_price + frog_box * multiplier, 2)
+        short_price = round(open_price - frog_box * multiplier, 2)
         return long_price, short_price
 
     def _get_frog_info(self, ticker, date_info):
         frog_info = self.frog_infos[self.frog_infos['Ticker'] == ticker]
-        return frog_info.get_value(date_info, 'LagFrog'), frog_info.get_value(date_info, 'LagAvgRange')
+        return frog_info.get_value(pd.Timestamp(date_info), 'LagFrog'), frog_info.get_value(pd.Timestamp(date_info), 'LagAvgRange')
 
 
 class FrogTrade(object):
-    def __init__(self, event, frog_box, avg_range, frog_multiplier, profit_multiplier, direction, stop_price, target_price, execute_price):
+    def __init__(self, event, frog_box, avg_range, frog_multiplier,
+                 profit_multiplier, direction, stop_price, target_price, execute_price):
         self.event = event
         self.frog_box = frog_box
         self.avg_range = avg_range
@@ -133,5 +198,10 @@ class FrogTrade(object):
         self.target_price = target_price
         self.execute_price = execute_price
 
+    def get_hybrid_frog_box(self):
+        return self.frog_box * self.frog_multiplier
 
-
+    def get_cover_direction(self):
+        if self.direction == 'LONG':
+            return 'SHORT'
+        return 'LONG'
