@@ -39,6 +39,7 @@ class IqfeedCsvBarPriceHandler(AbstractBarPriceHandler):
             self.continue_backtest = False
 
     def _open_ticker_price_csv(self, ticker):
+        print(str.format('Get ticker price: {0}', ticker))
         ticker_path = os.path.join(self.csv_dir, ticker + '.csv')
         price_df = pd.read_csv(ticker_path, index_col=0, parse_dates=True)
         price_df = price_df.ix[pd.to_datetime(str(self.start_date), format='%Y%m%d'):pd.to_datetime(str(self.end_date), format='%Y%m%d') + datetime.timedelta(days=1)]

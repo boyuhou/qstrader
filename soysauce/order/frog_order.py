@@ -49,7 +49,7 @@ class FrogOrderDetail(object):
     def to_str(self):
         try:
             str_result = str.format(
-                '{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14},{15}\n',
+                '{0},{1},{2},{3},{4:.2f},{5:.2f},{6:.2f},{7},{8},{9:.2f},{10:.2f},{11:.2f},{12:.2f},{13:.2f},{14:.2f},{15:.2f}\n',
                 self.ticker,
                 self.entry_datetime.date(),
                 self.entry_datetime.time(),
@@ -69,7 +69,7 @@ class FrogOrderDetail(object):
             )
         except AttributeError:
             print(str.format(
-                '{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14},{15}\n',
+                '{0},{1},{2},{3},{4:.2f},{5:.2f},{6:.2f},{7},{8},{9},{10},{11},{12},{13},{14},{15}\n',
                 self.ticker,
                 self.entry_datetime,
                 self.entry_datetime,

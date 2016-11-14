@@ -4,8 +4,8 @@ import datetime
 from qstrader.strategy.base import AbstractStrategy
 from qstrader.event import (MarketOrderEvent, EventType)
 
-open_time = datetime.time(9, 30)
-second_open_time = datetime.time(9,31)
+open_time = datetime.time(9, 31)
+second_open_time = datetime.time(9,32)
 close_time = datetime.time(16, 0)
 
 
@@ -29,6 +29,7 @@ class HybridFrogStrategy(AbstractStrategy):
         return pd.concat(score_dfs)
 
     def _get_frog_score(self, ticker):
+        print(str.format('Get Frog Score for ticker: {0}', ticker))
         score_file_path = os.path.join(self.frog_score_folder, ticker + '.csv')
         score_df = pd.read_csv(score_file_path, index_col=0, parse_dates=True)
         score_df['LagFrog'] = score_df['FrogBox'].shift(1)
@@ -38,9 +39,11 @@ class HybridFrogStrategy(AbstractStrategy):
         return score_df[['Ticker', 'LagFrog', 'LagAvgRange']].dropna()
 
     def calculate_signals(self, event):
-        if event.type == EventType.BAR:
+        try:
             frog_status = self._get_frog_play_status(event)
             self._analyze_event(frog_status, event)
+        except TypeError:
+            print(str.format('Cannot calculate the order on this day. Ticker: {0}, Datetime: {1}', event.ticker, event.time))
 
     def _attempt_to_enter_frog_play(self, event):
         open_price = self._get_open_price(event)
@@ -157,7 +160,6 @@ class HybridFrogStrategy(AbstractStrategy):
         try:
             if event.ticker not in self.frog_status:
                 self.frog_status[event.ticker] = {}
-            #TODO: should refactor here
             if event.time.time() == open_time or (event.time.date() not in self.frog_status[event.ticker]):
                 self.frog_status[event.ticker][event.time.date()] = 0
             return self.frog_status[event.ticker][event.time.date()]
@@ -166,14 +168,17 @@ class HybridFrogStrategy(AbstractStrategy):
             raise
 
     def _get_open_price(self, event):
-        if event.ticker not in self.open_prices:
-            self.open_prices[event.ticker] = {}
-        if event.time.time() == open_time:
-            self.open_prices[event.ticker][event.time.date()] = round(event.close_price, 2)
-        elif event.time.time() == second_open_time and event.time.date() not in self.open_prices[event.ticker]:
-            print(str.format('Unable to get 0930 Price. Ticker: {0}, Date:{1}', event.ticker, event.time))
-            self.open_prices[event.ticker][event.time.date()] = round(event.close_price, 2)
-        return self.open_prices[event.ticker][event.time.date()]
+        try:
+            if event.ticker not in self.open_prices:
+                self.open_prices[event.ticker] = {}
+            if event.time.time() == open_time:
+                self.open_prices[event.ticker][event.time.date()] = round(event.open_price, 2)
+            elif event.time.time() == second_open_time and event.time.date() not in self.open_prices[event.ticker]:
+                #print(str.format('Unable to get 0930 Price. Ticker: {0}, Date:{1}', event.ticker, event.time))
+                self.open_prices[event.ticker][event.time.date()] = round(event.close_price, 2)
+            return self.open_prices[event.ticker][event.time.date()]
+        except KeyError:
+            print(str.format('Unable to get open price, Ticker: {0}, Datetime: {1}', event.ticker, event.time))
 
     def _get_long_short_price(self, open_price, frog_box, multiplier):
         long_price = round(open_price + frog_box * multiplier, 2)
@@ -181,8 +186,11 @@ class HybridFrogStrategy(AbstractStrategy):
         return long_price, short_price
 
     def _get_frog_info(self, ticker, date_info):
-        frog_info = self.frog_infos[self.frog_infos['Ticker'] == ticker]
-        return frog_info.get_value(pd.Timestamp(date_info), 'LagFrog'), frog_info.get_value(pd.Timestamp(date_info), 'LagAvgRange')
+        try:
+            frog_info = self.frog_infos[self.frog_infos['Ticker'] == ticker]
+            return frog_info.get_value(pd.Timestamp(date_info), 'LagFrog'), frog_info.get_value(pd.Timestamp(date_info), 'LagAvgRange')
+        except KeyError:
+            print(str.format('Ticker: {0}, Time: {1}', ticker, date_info))
 
 
 class FrogTrade(object):
