@@ -24,20 +24,27 @@ def etf_run(): #config, testing, tickers, filename
     start_date = 20100217
     # start_date = 20161108
     end_date = 20161109
+    # frog_multiplier = 0.5
+    # profit_multiplier = 0.5
+    frog_multipliers = [0.5,0.6,0.7,0.8,0.9,1]
+    profit_multipliers = [0.5,0.6,0.7,0.8,0.9]
+    for frog_multiplier in frog_multipliers:
+        for profit_multiplier in profit_multipliers:
+            for t in tickers:
+                target_file = str.format(r'C:\temp\FROG_TRADES_{2}_{0}_{1}_HF{3}_Profit{4}_.csv',
+                                         str(start_date), str(end_date), t, str(frog_multiplier * 100),
+                                         str(profit_multiplier * 100))
+                if os.path.exists(target_file):
+                    continue
+                price_handler = IqfeedCsvBarPriceHandler(csv_dir, events_queue, [t], 60, start_date, end_date)
 
-    for t in tickers:
-        target_file = str.format(r'C:\temp\FROG_TRADES_{2}_{0}_{1}.csv', str(start_date), str(end_date), t)
-        if os.path.exists(target_file):
-            continue
-        price_handler = IqfeedCsvBarPriceHandler(csv_dir, events_queue, [t], 60, start_date, end_date)
+                frog_factor_folder = r'C:\temp\daily\factor'
 
-        frog_factor_folder = r'C:\temp\daily\factor'
-        frog_multiplier = 0.7
-        frog_strategy = HybridFrogStrategy([t], events_queue, frog_factor_folder, frog_multiplier)
-        frog_order = FrogOrder(str.format(r'C:\temp\FROG_TRADES_{2}_{0}_{1}.csv', str(start_date), str(end_date), t))
+                frog_strategy = HybridFrogStrategy([t], events_queue, frog_factor_folder, frog_multiplier, profit_multiplier)
+                frog_order = FrogOrder(target_file)
 
-        backtest = Backtest(price_handler, frog_strategy, frog_order)
-        backtest.simulate_trading()
+                backtest = Backtest(price_handler, frog_strategy, frog_order)
+                backtest.simulate_trading()
 
 if __name__ == '__main__':
     etf_run()
