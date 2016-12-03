@@ -21,8 +21,8 @@ class FrogOrder(object):
 
     @staticmethod
     def write_header():
-        return 'Ticker, EntryDate, EntryTime, Direction, EntryPrice, StopPrice, TargetPrice, ExitDate, ExitTime, ' \
-               'ExitPrice, AvgRange, FrogBox, HF, FrogMultiplier, ProfitMultiplier, OpenPrice\n'
+        return 'Ticker,EntryDate,EntryTime,Direction,EntryPrice,StopPrice,TargetPrice,ExitDate,ExitTime,' \
+               'ExitPrice,AvgRange,FrogBox,HF,FrogMultiplier,ProfitMultiplier,OpenPrice\n'
 
 
 class FrogOrderDetail(object):
