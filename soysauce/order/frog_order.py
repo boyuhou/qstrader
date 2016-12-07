@@ -1,4 +1,4 @@
-import os
+import numpy as np
 
 
 class FrogOrder(object):
@@ -22,7 +22,7 @@ class FrogOrder(object):
     @staticmethod
     def write_header():
         return 'Ticker,EntryDate,EntryTime,Direction,EntryPrice,StopPrice,TargetPrice,ExitDate,ExitTime,' \
-               'ExitPrice,AvgRange,FrogBox,HF,FrogMultiplier,ProfitMultiplier,OpenPrice\n'
+               'ExitPrice,AvgRange,FrogBox,HF,FrogMultiplier,ProfitMultiplier,OpenPrice,R\n'
 
 
 class FrogOrderDetail(object):
@@ -41,6 +41,9 @@ class FrogOrderDetail(object):
         self.open_price = event.info['OpenPrice']
         self.exit_price = None
         self.exit_datetime = None
+        self.initial_r = np.abs(self.stop_price - self.entry_price)
+        self.profit = None
+        self.actual_r = None
 
     def record_exit(self, event):
         self.exit_price = event.price
@@ -48,8 +51,11 @@ class FrogOrderDetail(object):
 
     def to_str(self):
         try:
+            if self.exit_price is not None:
+                self.profit = (self.exit_price - self.entry_price) if self.direction == 'LONG' else -1 * (self.exit_price - self.entry_price)
+                self.actual_r = self.profit / self.initial_r
             str_result = str.format(
-                '{0},{1},{2},{3},{4:.2f},{5:.2f},{6:.2f},{7},{8},{9:.2f},{10:.2f},{11:.2f},{12:.2f},{13:.2f},{14:.2f},{15:.2f}\n',
+                '{0},{1},{2},{3},{4:.2f},{5:.2f},{6:.2f},{7},{8},{9:.2f},{10:.2f},{11:.2f},{12:.2f},{13:.2f},{14:.2f},{15:.2f},{16:.2f}\n',
                 self.ticker,
                 self.entry_datetime.date(),
                 self.entry_datetime.time(),
@@ -65,7 +71,8 @@ class FrogOrderDetail(object):
                 round(self.hybrid_frog, 2),
                 round(self.frog_multiplier, 2),
                 round(self.profit_taking_multiplier, 2),
-                self.open_price
+                self.open_price,
+                self.actual_r
             )
         except AttributeError:
             print(str.format(

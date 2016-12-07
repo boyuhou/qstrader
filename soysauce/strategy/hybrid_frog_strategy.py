@@ -186,7 +186,7 @@ class HybridFrogStrategy(AbstractStrategy):
         try:
             return self.frog_status[event.time.date()]
         except KeyError:
-            print str.format('Ticker: {0}, Time: {1}', event.ticker, event.time)
+            print(str.format('Ticker: {0}, Time: {1}', event.ticker, event.time))
             raise
 
     def _get_open_price(self, event):
